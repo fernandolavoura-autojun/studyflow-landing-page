@@ -1,26 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Navbar } from "@/components/Navbar";
+import { Hero } from "@/components/Hero";
+import { Features } from "@/components/Features";
+import { Stats } from "@/components/Stats";
+import { Faq } from "@/components/Faq";
+import { Footer } from "@/components/Footer";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "StudyFlow — Domine seus estudos com IA" },
+      {
+        name: "description",
+        content:
+          "Resumos automáticos, cronograma inteligente e Pomodoro em uma só plataforma. Estude menos e retenha mais com o StudyFlow.",
+      },
+      { property: "og:title", content: "StudyFlow — Domine seus estudos com IA" },
+      {
+        property: "og:description",
+        content: "Plataforma de estudos com IA: resumos, flashcards e foco total.",
+      },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
+function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="min-h-screen bg-background text-foreground">
+      <Navbar />
+      <main>
+        <Hero />
+        <Features />
+        <Stats />
+        <Faq />
+      </main>
+      <Footer />
     </div>
   );
-}
-
-function Index() {
-  return <PlaceholderIndex />;
 }
