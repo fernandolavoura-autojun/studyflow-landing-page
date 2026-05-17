@@ -8,13 +8,15 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import {
-  type Todo,
-  createTodo,
-  deleteTodo,
-  fetchTodos,
-  toggleTodo,
-} from "@/lib/todos";
+import { supabase } from "../lib/supabase"; // Conexão oficial com seu banco de dados!
+
+// Estrutura exata da tabela que você criou no Supabase
+export type Todo = {
+  id: number;
+  title: string;
+  is_complete: boolean;
+  created_at: string;
+};
 
 type Filter = "all" | "active" | "done";
 
@@ -25,78 +27,88 @@ export function TodoApp() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
 
+  // 1. SELECT - Carregar tarefas do banco (Chamada ao abrir a página) 
+  async function carregarTarefas() {
+    const { data, error } = await supabase
+      .from("todo")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Erro ao carregar:", error);
+    } else {
+      setTodos(data || []);
+    }
+    setLoading(false);
+  }
+
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const data = await fetchTodos();
-        if (active) setTodos(data);
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+    carregarTarefas();
   }, []);
 
   const filtered = useMemo(() => {
-    if (filter === "active") return todos.filter((t) => !t.completed);
-    if (filter === "done") return todos.filter((t) => t.completed);
+    if (filter === "active") return todos.filter((t) => !t.is_complete);
+    if (filter === "done") return todos.filter((t) => t.is_complete);
     return todos;
   }, [todos, filter]);
 
-  const remaining = todos.filter((t) => !t.completed).length;
+  const remaining = todos.filter((t) => !t.is_complete).length;
   const completedCount = todos.length - remaining;
 
+  // 2. INSERT - Adicionar nova tarefa 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const value = title.trim();
     if (!value || adding) return;
+
     setAdding(true);
 
-    // Otimista: cria localmente, depois persiste (quando o Supabase estiver plugado).
-    const optimistic: Todo = {
-      id: `local-${crypto.randomUUID()}`,
-      title: value,
-      completed: false,
-      created_at: new Date().toISOString(),
-    };
-    setTodos((prev) => [optimistic, ...prev]);
-    setTitle("");
+    const { error } = await supabase
+      .from("todo")
+      .insert([{ title: value }]);
 
-    try {
-      const saved = await createTodo(value);
-      if (saved) {
-        setTodos((prev) => prev.map((t) => (t.id === optimistic.id ? saved : t)));
-      }
-    } finally {
-      setAdding(false);
+    if (error) {
+      console.error("Erro ao adicionar:", error);
+    } else {
+      setTitle("");
+      carregarTarefas(); // Atualiza a lista buscando do banco
     }
+    setAdding(false);
   }
 
+  // UPDATE - Marcar como concluída (Bônus para a sua lista ficar completa!)
   async function handleToggle(todo: Todo) {
-    const next = !todo.completed;
+    const next = !todo.is_complete;
+    
+    // Atualiza na tela instantaneamente (otimista)
     setTodos((prev) =>
-      prev.map((t) => (t.id === todo.id ? { ...t, completed: next } : t)),
+      prev.map((t) => (t.id === todo.id ? { ...t, is_complete: next } : t))
     );
-    try {
-      await toggleTodo(todo.id, next);
-    } catch {
-      // rollback se falhar
-      setTodos((prev) =>
-        prev.map((t) => (t.id === todo.id ? { ...t, completed: !next } : t)),
-      );
+
+    const { error } = await supabase
+      .from("todo")
+      .update({ is_complete: next })
+      .eq("id", todo.id);
+
+    if (error) {
+      console.error("Erro ao atualizar:", error);
+      carregarTarefas(); // Se falhar no banco, reverte a tela
     }
   }
 
+  // 3. DELETE - Excluir tarefa 
   async function handleDelete(todo: Todo) {
-    const snapshot = todos;
+    // Some da tela instantaneamente
     setTodos((prev) => prev.filter((t) => t.id !== todo.id));
-    try {
-      await deleteTodo(todo.id);
-    } catch {
-      setTodos(snapshot);
+
+    const { error } = await supabase
+      .from("todo")
+      .delete()
+      .eq("id", todo.id);
+
+    if (error) {
+      console.error("Erro ao excluir:", error);
+      carregarTarefas(); // Se falhar no banco, reverte a tela
     }
   }
 
@@ -106,13 +118,13 @@ export function TodoApp() {
       <div className="mb-10 flex flex-col items-center text-center">
         <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card-glass px-3 py-1 text-xs font-medium text-muted-foreground bg-card-glass">
           <Sparkles className="size-3.5 text-accent" />
-          Sua lista, sempre à mão
+          Sua lista, conectada na nuvem
         </span>
         <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
           <span className="text-gradient">To-Do</span> List
         </h1>
         <p className="mt-3 max-w-md text-balance text-sm text-muted-foreground sm:text-base">
-          Organize seu dia com uma interface simples, rápida e bonita.
+          Organize seu dia. Suas tarefas agora ficam salvas de verdade!
         </p>
       </div>
 
@@ -181,7 +193,7 @@ export function TodoApp() {
         <ul className="mt-5 space-y-2">
           {loading ? (
             <li className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> Carregando...
+              <Loader2 className="size-4 animate-spin" /> Carregando do Supabase...
             </li>
           ) : filtered.length === 0 ? (
             <li className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border py-12 text-center">
@@ -195,10 +207,6 @@ export function TodoApp() {
                     ? "Nada pendente. Aproveite! ✨"
                     : "Sua lista está vazia"}
               </p>
-              <p className="max-w-xs text-xs text-muted-foreground">
-                Conecte seu Supabase em <code>src/lib/todos.ts</code> para
-                persistir suas tarefas.
-              </p>
             </li>
           ) : (
             filtered.map((todo) => (
@@ -209,13 +217,13 @@ export function TodoApp() {
                 <button
                   onClick={() => handleToggle(todo)}
                   aria-label={
-                    todo.completed
+                    todo.is_complete
                       ? "Marcar como não concluída"
                       : "Marcar como concluída"
                   }
                   className="shrink-0 text-muted-foreground transition hover:text-primary"
                 >
-                  {todo.completed ? (
+                  {todo.is_complete ? (
                     <CheckCircle2 className="size-5 text-accent" />
                   ) : (
                     <Circle className="size-5" />
@@ -223,7 +231,7 @@ export function TodoApp() {
                 </button>
                 <span
                   className={`flex-1 text-sm transition ${
-                    todo.completed
+                    todo.is_complete
                       ? "text-muted-foreground line-through"
                       : "text-foreground"
                   }`}
@@ -242,12 +250,6 @@ export function TodoApp() {
           )}
         </ul>
       </div>
-
-      <p className="mt-6 text-center text-xs text-muted-foreground">
-        💡 As funções <code>fetchTodos</code>, <code>createTodo</code>,{" "}
-        <code>toggleTodo</code> e <code>deleteTodo</code> estão prontas em{" "}
-        <code>src/lib/todos.ts</code> — basta plugar seu Supabase.
-      </p>
     </section>
   );
 }
