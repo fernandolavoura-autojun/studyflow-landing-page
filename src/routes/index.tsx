@@ -1,24 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Navbar } from "@/components/Navbar";
-import { Hero } from "@/components/Hero";
-import { Features } from "@/components/Features";
-import { Stats } from "@/components/Stats";
-import { Faq } from "@/components/Faq";
-import { Footer } from "@/components/Footer";
+import { TodoApp } from "@/components/TodoApp";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "StudyFlow — Domine seus estudos com IA" },
+      { title: "To-Do List — Organize suas tarefas" },
       {
         name: "description",
         content:
-          "Resumos automáticos, cronograma inteligente e Pomodoro em uma só plataforma. Estude menos e retenha mais com o StudyFlow.",
+          "Lista de tarefas moderna: adicione, conclua e exclua afazeres com uma interface rápida e bonita.",
       },
-      { property: "og:title", content: "StudyFlow — Domine seus estudos com IA" },
+      { property: "og:title", content: "To-Do List" },
       {
         property: "og:description",
-        content: "Plataforma de estudos com IA: resumos, flashcards e foco total.",
+        content: "Organize seu dia com uma to-do list simples e elegante.",
       },
     ],
   }),
@@ -27,15 +22,12 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Navbar />
-      <main>
-        <Hero />
-        <Features />
-        <Stats />
-        <Faq />
+    <div className="relative min-h-screen bg-background text-foreground">
+      <div className="pointer-events-none absolute inset-0 bg-hero" />
+      <div className="pointer-events-none absolute inset-0 grid-pattern opacity-50" />
+      <main className="relative z-10">
+        <TodoApp />
       </main>
-      <Footer />
     </div>
   );
 }
